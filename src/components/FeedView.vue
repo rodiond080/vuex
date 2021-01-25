@@ -1,0 +1,143 @@
+<template>
+<div>
+
+  <mcv-loading v-if='isLoading' />
+  <mcv-error-message v-if='error' message='There is an error in feed posts generation' />
+  <div v-if='feed'>
+    <div class='article-preview' v-for='(article, index ) in feed.articles' :key='index'>
+      <div class='article-meta'>
+
+        <router-link
+          :to="{
+          name:'UserProfile',
+          params: {slug: article.author.username}
+        }"
+        >
+          <img :src='article.author.image' />
+        </router-link>
+
+        <div class='info'>
+
+          <router-link
+            :to="{
+            name:'UserProfile',
+           params: {slug: article.author.username}
+          }"
+          >
+            {{article.author.username}}
+          </router-link>
+
+          <span class='date'>{{article.createdAt}}</span>
+        </div>
+        <div class='pull-xs-right'>
+          <mcv-add-to-favorites
+            :is-favorited="article.favorited"
+            :article-slug="article.slug"
+            :favorites-count="article.favoritesCount"
+          ></mcv-add-to-favorites>
+        </div>
+      </div>
+
+      <router-link :to="{
+        name:'Article',
+        params:{slug:article.slug}}" class='preview-link'>
+
+      <h1>{{article.title}}</h1>
+        <p>{{article.description}}</p>
+        <span>Read more...</span>
+
+        <mcv-tag-list :tags="article.tagList" />
+
+      </router-link>
+
+    </div>
+    <mcv-pagination
+    :total='feed.articlesCount'
+    :limit='limit'
+    :current-page='currentPage'
+    :url='baseUrl'
+    />
+  </div>
+</div>
+</template>
+
+<script>
+import {mapState} from 'vuex';
+import {actionTypes} from '@/store/modules/feed';
+import McvPagination from '@/components/Pagination';
+import McvLoading from '@/components/Loading';
+import McvErrorMessage from '@/components/ErrorMessage';
+import {limit} from '@/helpers/variables';
+import {stringify, parseUrl} from 'query-string';
+import McvTagList from '@/components/TagList';
+import McvAddToFavorites from '@/components/AddToFavorites';
+
+export default {
+  name: 'McvFeed',
+  props:{
+    apiUrl:{
+      type:String,
+      required:true
+    }
+  },
+  components: {
+    McvTagList,
+    McvPagination,
+    McvLoading,
+    McvErrorMessage,
+    McvAddToFavorites
+  },
+  data(){
+    return {
+      // total:500,
+      limit,
+      // currentPage:5,
+      // baseUrl:'/tags/dragons'
+    }
+  },
+  computed: {
+    ...mapState({
+      isLoading: state=> state.feed.isLoading,
+      feed : state=> state.feed.data,
+      error : state=> state.feed.error,
+    }),
+    currentPage(){
+      return Number(this.$route.query.page || '1');
+    },
+    baseUrl(){
+      return this.$route.path;
+    },
+    offset(){
+      return this.currentPage * limit - limit;
+    }
+  },
+  watch:{
+    currentPage(){
+      this.fetchFeed();
+    },
+    apiUrl(){
+      this.fetchFeed();
+    }
+  },
+  mounted() {
+    this.fetchFeed();
+  },
+  methods: {
+    fetchFeed(){
+      const parsedUrl = parseUrl(this.apiUrl);
+      const stringifiedParams = stringify({
+        limit,
+        offset:this.offset,
+        ...parsedUrl.query
+      });
+
+      const apiUrlWithParams = `${parsedUrl.url}?${stringifiedParams}`;
+      this.$store.dispatch(actionTypes.getFeed, {apiUrl:apiUrlWithParams});
+    }
+  }
+};
+</script>
+
+<style scoped>
+
+</style>
